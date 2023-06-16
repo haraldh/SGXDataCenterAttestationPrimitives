@@ -187,21 +187,11 @@ fn ecdsa_quote_verification(quote: &[u8], use_qve: bool) {
         }
 
         // get collateral
-        let collateral = match tee_qv_get_collateral(quote) {
-            Ok(c) => {
-                println!("\tInfo: tee_qv_get_collateral successfully returned.");
-                Some(c)
-            }
-            Err(e) => {
-                println!("\tError: tee_qv_get_collateral failed: {:#04x}", e as u32);
-                None
-            }
+        let collateral = tee_qv_get_collateral(quote);
+        match collateral {
+            Ok(ref c) => println!("\tInfo: tee_qv_get_collateral successfully returned."),
+            Err(e) => println!("\tError: tee_qv_get_collateral failed: {:#04x}", e as u32),
         };
-
-        let p_collateral: Option<&[u8]> = None;
-        // uncomment the next 2 lines, if you want to use the collateral provided by the caller in the verification
-        // let collateral = collateral.unwrap();
-        // let p_collateral = Some(&collateral[..]);
 
         // set current time. This is only for sample purposes, in production mode a trusted time should be used.
         //
@@ -222,7 +212,7 @@ fn ecdsa_quote_verification(quote: &[u8], use_qve: bool) {
         // if '&qve_report_info' is NULL, this API will call 'untrusted quote verify lib' to verify quote, this mode doesn't rely on SGX capable system, but the results can not be cryptographically authenticated
         match tee_verify_quote(
             quote,
-            p_collateral,
+            collateral.ok().as_ref(),
             current_time,
             Some(&mut qve_report_info),
             p_supplemental_data,
@@ -305,21 +295,11 @@ fn ecdsa_quote_verification(quote: &[u8], use_qve: bool) {
         }
 
         // get collateral
-        let collateral = match tee_qv_get_collateral(quote) {
-            Ok(c) => {
-                println!("\tInfo: tee_qv_get_collateral successfully returned.");
-                Some(c)
-            }
-            Err(e) => {
-                println!("\tError: tee_qv_get_collateral failed: {:#04x}", e as u32);
-                None
-            }
+        let collateral = tee_qv_get_collateral(quote);
+        match collateral {
+            Ok(ref c) => println!("\tInfo: tee_qv_get_collateral successfully returned."),
+            Err(e) => println!("\tError: tee_qv_get_collateral failed: {:#04x}", e as u32),
         };
-
-        let p_collateral: Option<&[u8]> = None;
-        // uncomment the next 2 lines, if you want to use the collateral provided by the caller in the verification
-        // let collateral = collateral.unwrap();
-        // let p_collateral = Some(&collateral[..]);
 
         // set current time. This is only for sample purposes, in production mode a trusted time should be used.
         //
@@ -340,7 +320,7 @@ fn ecdsa_quote_verification(quote: &[u8], use_qve: bool) {
         // if '&qve_report_info' is NULL, this API will call 'untrusted quote verify lib' to verify quote, this mode doesn't rely on SGX capable system, but the results can not be cryptographically authenticated
         match tee_verify_quote(
             quote,
-            p_collateral,
+            collateral.ok().as_ref(),
             current_time,
             None,
             p_supplemental_data,
@@ -394,16 +374,13 @@ fn ecdsa_quote_verification(quote: &[u8], use_qve: bool) {
         println!("\tInfo: Supplemental data Major Version: {}", version_s.major_version);
         println!("\tInfo: Supplemental data Minor Version: {}", version_s.minor_version);
 
-        // print SA list if it is a valid UTF-8 string
-
-        let sa_list = unsafe {
-            std::slice::from_raw_parts(
-                supp_data.sa_list.as_ptr() as *const u8,
-                mem::size_of_val(&supp_data.sa_list),
-            )
-        };
-        if let Ok(s) = std::str::from_utf8(sa_list) {
-            println!("\tInfo: Advisory ID: {}", s);
+        // print SA list if exist, SA list is supported from version 3.1
+        //
+        if unsafe { supp_data.__bindgen_anon_1.version } > 3 {
+            let sa_list = unsafe { std::ffi::CStr::from_ptr(supp_data.sa_list.as_ptr()) };
+            if sa_list.to_bytes().len() > 0 {
+                println!("\tInfo: Advisory ID: {}", sa_list.to_str().unwrap());
+            }
         }
     }
 }

@@ -28,23 +28,65 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  */
-//! Intel(R) Software Guard Extensions Data Center Attestation Primitives (Intel(R) SGX DCAP)
+//! Intel®️ Software Guard Extensions Data Center Attestation Primitives (Intel®️ SGX DCAP)\
 //! Rust wrapper for Quote Verification Library
 //! ================================================
 //!
 //! This is a safe wrapper for **sgx-dcap-quoteverify-sys**.
 
 use intel_tee_quote_verification_sys as qvl_sys;
+use qvl_sys::sgx_ql_qve_collateral_t;
 
 pub use qvl_sys::quote3_error_t;
-pub use qvl_sys::sgx_ql_request_policy_t;
-pub use qvl_sys::sgx_ql_qv_supplemental_t;
-pub use qvl_sys::sgx_ql_qve_collateral_t;
-pub use qvl_sys::tdx_ql_qve_collateral_t;
-pub use qvl_sys::sgx_ql_qv_result_t;
 pub use qvl_sys::sgx_ql_qe_report_info_t;
+pub use qvl_sys::sgx_ql_qv_result_t;
+pub use qvl_sys::sgx_ql_qv_supplemental_t;
+pub use qvl_sys::sgx_ql_request_policy_t;
 pub use qvl_sys::sgx_qv_path_type_t;
 pub use qvl_sys::tee_supp_data_descriptor_t;
+
+/// Quote Certification Collateral Structure
+///
+pub struct Collateral {
+    major_version: u16,
+    minor_version: u16,
+    tee_type: u32,
+    pck_crl_issuer_chain: Vec<i8>,
+    root_ca_crl: Vec<i8>,
+    pck_crl: Vec<i8>,
+    tcb_info_issuer_chain: Vec<i8>,
+    tcb_info: Vec<i8>,
+    qe_identity_issuer_chain: Vec<i8>,
+    qe_identity: Vec<i8>,
+}
+
+/// Convert Rust representation collateral to C representation
+///
+fn convert_collateral(rust_collateral: &Collateral) -> sgx_ql_qve_collateral_t {
+    sgx_ql_qve_collateral_t {
+        __bindgen_anon_1: qvl_sys::_sgx_ql_qve_collateral_t__bindgen_ty_1 {
+            __bindgen_anon_1: qvl_sys::_sgx_ql_qve_collateral_t__bindgen_ty_1__bindgen_ty_1 {
+                major_version: rust_collateral.major_version,
+                minor_version: rust_collateral.minor_version,
+            },
+        },
+        tee_type: rust_collateral.tee_type,
+        pck_crl_issuer_chain: rust_collateral.pck_crl_issuer_chain.as_ptr() as *mut i8,
+        pck_crl_issuer_chain_size: rust_collateral.pck_crl_issuer_chain.len() as u32,
+        root_ca_crl: rust_collateral.root_ca_crl.as_ptr() as *mut i8,
+        root_ca_crl_size: rust_collateral.root_ca_crl.len() as u32,
+        pck_crl: rust_collateral.pck_crl.as_ptr() as *mut i8,
+        pck_crl_size: rust_collateral.pck_crl.len() as u32,
+        tcb_info_issuer_chain: rust_collateral.tcb_info_issuer_chain.as_ptr() as *mut i8,
+        tcb_info_issuer_chain_size: rust_collateral.tcb_info_issuer_chain.len() as u32,
+        tcb_info: rust_collateral.tcb_info.as_ptr() as *mut i8,
+        tcb_info_size: rust_collateral.tcb_info.len() as u32,
+        qe_identity_issuer_chain: rust_collateral.qe_identity_issuer_chain.as_ptr() as *mut i8,
+        qe_identity_issuer_chain_size: rust_collateral.qe_identity_issuer_chain.len() as u32,
+        qe_identity: rust_collateral.qe_identity.as_ptr() as *mut i8,
+        qe_identity_size: rust_collateral.qe_identity.len() as u32,
+    }
+}
 
 /// When the Quoting Verification Library is linked to a process, it needs to know the proper enclave loading policy.
 /// The library may be linked with a long lived process, such as a service, where it can load the enclaves and leave
@@ -140,18 +182,17 @@ pub fn sgx_qv_get_quote_supplemental_data_size() -> Result<u32, quote3_error_t> 
 ///
 pub fn sgx_qv_verify_quote(
     quote: &[u8],
-    quote_collateral: Option<&sgx_ql_qve_collateral_t>,
+    quote_collateral: Option<&Collateral>,
     expiration_check_date: i64,
     qve_report_info: Option<&mut sgx_ql_qe_report_info_t>,
     supplemental_data_size: u32,
     supplemental_data: Option<&mut sgx_ql_qv_supplemental_t>,
 ) -> Result<(u32, sgx_ql_qv_result_t), quote3_error_t> {
-
     let mut collateral_expiration_status = 1u32;
     let mut quote_verification_result = sgx_ql_qv_result_t::SGX_QL_QV_RESULT_UNSPECIFIED;
 
     let p_quote_collateral = match quote_collateral {
-        Some(p) => p,
+        Some(p) => &convert_collateral(p),
         None => std::ptr::null(),
     };
     let p_qve_report_info = match qve_report_info {
@@ -242,18 +283,17 @@ pub fn tdx_qv_get_quote_supplemental_data_size() -> Result<u32, quote3_error_t> 
 ///
 pub fn tdx_qv_verify_quote(
     quote: &[u8],
-    quote_collateral: Option<&tdx_ql_qve_collateral_t>,
+    quote_collateral: Option<&Collateral>,
     expiration_check_date: i64,
     qve_report_info: Option<&mut sgx_ql_qe_report_info_t>,
     supplemental_data_size: u32,
     supplemental_data: Option<&mut sgx_ql_qv_supplemental_t>,
 ) -> Result<(u32, sgx_ql_qv_result_t), quote3_error_t> {
-
     let mut collateral_expiration_status = 1u32;
     let mut quote_verification_result = sgx_ql_qv_result_t::SGX_QL_QV_RESULT_UNSPECIFIED;
 
     let p_quote_collateral = match quote_collateral {
-        Some(p) => p,
+        Some(p) => &convert_collateral(p),
         None => std::ptr::null(),
     };
     let p_qve_report_info = match qve_report_info {
@@ -303,7 +343,7 @@ pub fn tdx_qv_verify_quote(
 #[cfg(target_os = "linux")]
 pub fn sgx_qv_set_path(path_type: sgx_qv_path_type_t, path: &str) -> quote3_error_t {
     match std::ffi::CString::new(path) {
-        Ok(path) => unsafe { qvl_sys::sgx_qv_set_path(path_type, path.as_ptr()) }
+        Ok(path) => unsafe { qvl_sys::sgx_qv_set_path(path_type, path.as_ptr()) },
         _ => quote3_error_t::SGX_QL_ERROR_INVALID_PARAMETER,
     }
 }
@@ -330,7 +370,7 @@ pub fn sgx_qv_set_path(path_type: sgx_qv_path_type_t, path: &str) -> quote3_erro
 /// - *SGX_QL_NO_QUOTE_COLLATERAL_DATA*
 /// - *SGX_QL_ERROR_UNEXPECTED*
 ///
-pub fn tee_qv_get_collateral(quote: &[u8]) -> Result<Vec<u8>, quote3_error_t> {
+pub fn tee_qv_get_collateral(quote: &[u8]) -> Result<Collateral, quote3_error_t> {
     let mut buf = std::ptr::null_mut();
     let mut buf_len = 0u32;
 
@@ -344,55 +384,89 @@ pub fn tee_qv_get_collateral(quote: &[u8]) -> Result<Vec<u8>, quote3_error_t> {
             quote3_error_t::SGX_QL_SUCCESS => {
                 assert!(!buf.is_null());
                 assert!(buf_len > 0);
-                let mut collateral = vec![0u8; buf_len as usize];
+
                 let orig_collateral = &*(buf as *const sgx_ql_qve_collateral_t);
-
-                // copy the original collateral
-                let mut index = 0usize;
-                collateral[..std::mem::size_of::<sgx_ql_qve_collateral_t>()]
-                    .copy_from_slice(std::slice::from_raw_parts(buf, std::mem::size_of::<sgx_ql_qve_collateral_t>()));
-
-                // copy pck_crl_issuer_chain field
-                index += std::mem::size_of::<sgx_ql_qve_collateral_t>();
-                collateral[index..(index + orig_collateral.pck_crl_issuer_chain_size as usize)]
-                    .copy_from_slice(std::slice::from_raw_parts(orig_collateral.pck_crl_issuer_chain as *const u8, orig_collateral.pck_crl_issuer_chain_size as usize));
-                (*(collateral.as_mut_ptr() as *mut sgx_ql_qve_collateral_t)).pck_crl_issuer_chain = &mut collateral[index] as *mut u8 as *mut i8;
-
-                // copy root_ca_crl field
-                index += orig_collateral.pck_crl_issuer_chain_size as usize;
-                collateral[index..(index + orig_collateral.root_ca_crl_size as usize)]
-                    .copy_from_slice(std::slice::from_raw_parts(orig_collateral.root_ca_crl as *const u8, orig_collateral.root_ca_crl_size as usize));
-                (*(collateral.as_mut_ptr() as *mut sgx_ql_qve_collateral_t)).root_ca_crl = &mut collateral[index] as *mut u8 as *mut i8;
-
-                // copy pck_crl field
-                index += orig_collateral.root_ca_crl_size as usize;
-                collateral[index..(index + orig_collateral.pck_crl_size as usize)]
-                    .copy_from_slice(std::slice::from_raw_parts(orig_collateral.pck_crl as *const u8, orig_collateral.pck_crl_size as usize));
-                (*(collateral.as_mut_ptr() as *mut sgx_ql_qve_collateral_t)).pck_crl = &mut collateral[index] as *mut u8 as *mut i8;
-
-                // copy tcb_info_issuer_chain field
-                index += orig_collateral.pck_crl_size as usize;
-                collateral[index..(index + orig_collateral.tcb_info_issuer_chain_size as usize)]
-                    .copy_from_slice(std::slice::from_raw_parts(orig_collateral.tcb_info_issuer_chain as *const u8, orig_collateral.tcb_info_issuer_chain_size as usize));
-                (*(collateral.as_mut_ptr() as *mut sgx_ql_qve_collateral_t)).tcb_info_issuer_chain = &mut collateral[index] as *mut u8 as *mut i8;
-
-                // copy tcb_info field
-                index += orig_collateral.tcb_info_issuer_chain_size as usize;
-                collateral[index..(index + orig_collateral.tcb_info_size as usize)]
-                    .copy_from_slice(std::slice::from_raw_parts(orig_collateral.tcb_info as *const u8, orig_collateral.tcb_info_size as usize));
-                (*(collateral.as_mut_ptr() as *mut sgx_ql_qve_collateral_t)).tcb_info = &mut collateral[index] as *mut u8 as *mut i8;
-
-                // copy qe_identity_issuer_chain field
-                index += orig_collateral.tcb_info_size as usize;
-                collateral[index..(index + orig_collateral.qe_identity_issuer_chain_size as usize)]
-                    .copy_from_slice(std::slice::from_raw_parts(orig_collateral.qe_identity_issuer_chain as *const u8, orig_collateral.qe_identity_issuer_chain_size as usize));
-                (*(collateral.as_mut_ptr() as *mut sgx_ql_qve_collateral_t)).qe_identity_issuer_chain = &mut collateral[index] as *mut u8 as *mut i8;
-
-                // copy qe_identity field
-                index += orig_collateral.qe_identity_issuer_chain_size as usize;
-                collateral[index..(index + orig_collateral.qe_identity_size as usize)]
-                    .copy_from_slice(std::slice::from_raw_parts(orig_collateral.qe_identity as *const u8, orig_collateral.qe_identity_size as usize));
-                (*(collateral.as_mut_ptr() as *mut sgx_ql_qve_collateral_t)).qe_identity = &mut collateral[index] as *mut u8 as *mut i8;
+                let mut collateral = Collateral {
+                    major_version: orig_collateral
+                        .__bindgen_anon_1
+                        .__bindgen_anon_1
+                        .major_version,
+                    minor_version: orig_collateral
+                        .__bindgen_anon_1
+                        .__bindgen_anon_1
+                        .minor_version,
+                    tee_type: orig_collateral.tee_type,
+                    pck_crl_issuer_chain: vec![
+                        0i8;
+                        orig_collateral.pck_crl_issuer_chain_size as usize
+                    ],
+                    root_ca_crl: vec![
+                        0i8;
+                        orig_collateral.root_ca_crl_size as usize
+                    ],
+                    pck_crl: vec![
+                        0i8;
+                        orig_collateral.pck_crl_size as usize
+                    ],
+                    tcb_info_issuer_chain: vec![
+                        0i8;
+                        orig_collateral.tcb_info_issuer_chain_size as usize
+                    ],
+                    tcb_info: vec![
+                        0i8;
+                        orig_collateral.tcb_info_size as usize
+                    ],
+                    qe_identity_issuer_chain: vec![
+                        0i8;
+                        orig_collateral.qe_identity_issuer_chain_size as usize
+                    ],
+                    qe_identity: vec![
+                        0i8;
+                        orig_collateral.qe_identity_size as usize
+                    ],
+                };
+                collateral
+                    .pck_crl_issuer_chain
+                    .copy_from_slice(std::slice::from_raw_parts(
+                        orig_collateral.pck_crl_issuer_chain,
+                        orig_collateral.pck_crl_issuer_chain_size as usize,
+                    ));
+                collateral
+                    .root_ca_crl
+                    .copy_from_slice(std::slice::from_raw_parts(
+                        orig_collateral.root_ca_crl,
+                        orig_collateral.root_ca_crl_size as usize,
+                    ));
+                collateral
+                    .pck_crl
+                    .copy_from_slice(std::slice::from_raw_parts(
+                        orig_collateral.pck_crl,
+                        orig_collateral.pck_crl_size as usize,
+                    ));
+                collateral
+                    .tcb_info_issuer_chain
+                    .copy_from_slice(std::slice::from_raw_parts(
+                        orig_collateral.tcb_info_issuer_chain,
+                        orig_collateral.tcb_info_issuer_chain_size as usize,
+                    ));
+                collateral
+                    .tcb_info
+                    .copy_from_slice(std::slice::from_raw_parts(
+                        orig_collateral.tcb_info,
+                        orig_collateral.tcb_info_size as usize,
+                    ));
+                collateral
+                    .qe_identity_issuer_chain
+                    .copy_from_slice(std::slice::from_raw_parts(
+                        orig_collateral.qe_identity_issuer_chain,
+                        orig_collateral.qe_identity_issuer_chain_size as usize,
+                    ));
+                collateral
+                    .qe_identity
+                    .copy_from_slice(std::slice::from_raw_parts(
+                        orig_collateral.qe_identity,
+                        orig_collateral.qe_identity_size as usize,
+                    ));
 
                 match qvl_sys::tee_qv_free_collateral(buf) {
                     quote3_error_t::SGX_QL_SUCCESS => Ok(collateral),
@@ -472,17 +546,16 @@ pub fn tee_get_supplemental_data_version_and_size(
 ///
 pub fn tee_verify_quote(
     quote: &[u8],
-    quote_collateral: Option<&[u8]>,
+    quote_collateral: Option<&Collateral>,
     expiration_check_date: i64,
     qve_report_info: Option<&mut sgx_ql_qe_report_info_t>,
     supp_data_descriptor: Option<&mut tee_supp_data_descriptor_t>,
 ) -> Result<(u32, sgx_ql_qv_result_t), quote3_error_t> {
-
     let mut collateral_expiration_status = 1u32;
     let mut quote_verification_result = sgx_ql_qv_result_t::SGX_QL_QV_RESULT_UNSPECIFIED;
 
     let p_quote_collateral = match quote_collateral {
-        Some(p) => p.as_ptr(),
+        Some(p) => &convert_collateral(p) as *const sgx_ql_qve_collateral_t as *const u8,
         None => std::ptr::null(),
     };
     let p_qve_report_info = match qve_report_info {
