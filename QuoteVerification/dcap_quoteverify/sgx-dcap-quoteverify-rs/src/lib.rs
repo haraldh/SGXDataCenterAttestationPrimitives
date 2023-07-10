@@ -34,6 +34,9 @@
 //!
 //! This is a safe wrapper for **sgx-dcap-quoteverify-sys**.
 
+#[cfg(test)]
+mod test;
+
 use intel_tee_quote_verification_sys as qvl_sys;
 use qvl_sys::sgx_ql_qve_collateral_t;
 
